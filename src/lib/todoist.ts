@@ -46,7 +46,8 @@ export async function fetchTodoistTasks(filters?: { projectId?: string; label?: 
     throw new Error(`Todoist API error: ${error}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return data.results || data;
 }
 
 export async function fetchTodoistProjects(): Promise<TodoistProject[]> {
@@ -62,7 +63,8 @@ export async function fetchTodoistProjects(): Promise<TodoistProject[]> {
     throw new Error(`Todoist API error: ${error}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  return data.results || data;
 }
 
 export async function completeTodoistTask(taskId: string): Promise<void> {
