@@ -20,6 +20,8 @@ const isServerless = process.env.VERCEL === '1' || process.env.VERCEL_ENV !== un
 
 let db: Database | null = null;
 
+export { ensureTables };
+
 export function getDb(): Database {
   if (!db) {
     // Try better-sqlite3 first for local development
@@ -38,9 +40,103 @@ export function getDb(): Database {
         db = createLibSqlDb();
       }
     }
-    initTables();
+    // Initialize tables synchronously
+    initTablesSync();
   }
   return db;
+}
+
+// Lazy table initialization - tables created on first query if needed
+let tablesInitialized = false;
+
+async function ensureTables() {
+  if (tablesInitialized || !db) return;
+  
+  try {
+    // Create tables
+    await db.exec(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'active',
+        priority TEXT DEFAULT 'medium',
+        progress INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE TABLE IF NOT EXISTS tasks (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'todo',
+        priority INTEGER DEFAULT 4,
+        project_id TEXT,
+        todoist_task_id TEXT UNIQUE,
+        due_date TEXT,
+        labels TEXT,
+        url TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE TABLE IF NOT EXISTS blockers (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        description TEXT,
+        severity TEXT DEFAULT 'warning',
+        status TEXT DEFAULT 'open',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        resolved_at TEXT
+      );
+      
+      CREATE TABLE IF NOT EXISTS research (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        topic TEXT,
+        status TEXT DEFAULT 'queued',
+        priority TEXT DEFAULT 'medium',
+        tags TEXT,
+        findings TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        completed_at TEXT
+      );
+      
+      CREATE TABLE IF NOT EXISTS bots (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        status TEXT DEFAULT 'inactive',
+        schedule TEXT,
+        config TEXT,
+        last_run TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+      
+      CREATE TABLE IF NOT EXISTS bot_logs (
+        id TEXT PRIMARY KEY,
+        bot_id TEXT,
+        timestamp TEXT DEFAULT CURRENT_TIMESTAMP,
+        level TEXT DEFAULT 'info',
+        message TEXT
+      );
+      
+      CREATE TABLE IF NOT EXISTS sync_metadata (
+        id INTEGER PRIMARY KEY,
+        last_todoist_sync TEXT,
+        last_calendar_sync TEXT
+      );
+      
+      INSERT OR IGNORE INTO sync_metadata (id) VALUES (1);
+    `);
+    
+    tablesInitialized = true;
+    console.log('Tables initialized successfully');
+  } catch (error) {
+    console.error('Error initializing tables:', error);
+    throw error;
+  }
 }
 
 // Better-sqlite3 implementation (local development)

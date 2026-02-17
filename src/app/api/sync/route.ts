@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, ensureTables } from '@/lib/db';
 import { fetchTodoistTasks, mapTodoistPriority } from '@/lib/todoist';
 import { fetchTodayEvents, fetchUpcomingEvents } from '@/lib/calendar';
 
@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 export async function POST(request: NextRequest) {
   try {
     const db = getDb();
+    await ensureTables();
     const results: Record<string, any> = {};
     
     // Sync Todoist tasks
@@ -88,6 +89,7 @@ interface SyncMetadata {
 export async function GET(request: NextRequest) {
   try {
     const db = getDb();
+    await ensureTables();
     const metadata = await db.prepare('SELECT * FROM sync_metadata WHERE id = 1').get() as SyncMetadata | undefined;
     
     // Get counts

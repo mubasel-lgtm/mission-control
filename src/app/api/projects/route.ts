@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb } from '@/lib/db';
+import { getDb, ensureTables } from '@/lib/db';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const db = getDb();
+    await ensureTables();
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');
     
@@ -37,6 +38,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const db = getDb();
+    await ensureTables();
     const body = await request.json();
     
     const id = crypto.randomUUID();
