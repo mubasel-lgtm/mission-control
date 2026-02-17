@@ -3,6 +3,8 @@ import { getDb } from '@/lib/db';
 import { fetchTodoistTasks, mapTodoistPriority } from '@/lib/todoist';
 import { fetchTodayEvents, fetchUpcomingEvents } from '@/lib/calendar';
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/sync - Trigger full sync
 export async function POST(request: NextRequest) {
   try {
@@ -76,11 +78,16 @@ export async function POST(request: NextRequest) {
   }
 }
 
+interface SyncMetadata {
+  last_todoist_sync: string | null;
+  last_calendar_sync: string | null;
+}
+
 // GET /api/sync/status - Get sync status
 export async function GET(request: NextRequest) {
   try {
     const db = getDb();
-    const metadata = db.prepare('SELECT * FROM sync_metadata WHERE id = 1').get();
+    const metadata = db.prepare('SELECT * FROM sync_metadata WHERE id = 1').get() as SyncMetadata | undefined;
     
     // Get counts
     const taskCount = db.prepare('SELECT COUNT(*) as count FROM tasks').get() as { count: number };

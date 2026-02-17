@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // PATCH /api/projects/[id] - Update a project
 export async function PATCH(
   request: NextRequest,

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/bots/[id]/logs - Get bot logs
 export async function GET(
   request: NextRequest,

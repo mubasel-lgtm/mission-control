@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchTodayEvents, fetchUpcomingEvents } from '@/lib/calendar';
 
+// Force dynamic rendering for API routes that use request.url
+export const dynamic = 'force-dynamic';
+
 // GET /api/calendar/events - Get calendar events
 export async function GET(request: NextRequest) {
   try {

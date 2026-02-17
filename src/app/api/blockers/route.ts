@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/blockers - List blockers ("Needs Mubasel")
 export async function GET(request: NextRequest) {
   try {

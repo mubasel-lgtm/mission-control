@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { fetchTodoistTasks, mapTodoistPriority } from '@/lib/todoist';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/tasks - List tasks (optionally synced from Todoist)
 export async function GET(request: NextRequest) {
   try {

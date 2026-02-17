@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import crypto from 'crypto';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/projects - List all projects
 export async function GET(request: NextRequest) {
   try {

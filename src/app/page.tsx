@@ -386,9 +386,9 @@ export default function Dashboard() {
                   )}
                   {item.tags && item.tags.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-2">
-                      {item.tags.split(',').map((tag: string, i: number) => (
+                      {item.tags.map((tag: string, i: number) => (
                         <span key={i} className="px-1.5 py-0.5 text-xs rounded bg-muted text-muted-foreground">
-                          {tag.trim()}
+                          {tag}
                         </span>
                       ))}
                     </div>

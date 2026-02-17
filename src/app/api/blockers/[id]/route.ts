@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 
+export const dynamic = 'force-dynamic';
+
 // PATCH /api/blockers/[id] - Update a blocker
 export async function PATCH(
   request: NextRequest,

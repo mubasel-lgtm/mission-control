@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { fetchTodoistTasks, mapTodoistPriority } from '@/lib/todoist';
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/webhooks/todoist - Receive Todoist webhook events
 export async function POST(request: NextRequest) {
   try {
