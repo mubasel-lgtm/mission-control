@@ -82,6 +82,7 @@ export default function Dashboard() {
   // Fetch all data
   const fetchData = async () => {
     try {
+      console.log('Fetching data...');
       const [projectsRes, tasksRes, eventsRes, blockersRes, researchRes, botsRes, syncRes] = await Promise.all([
         fetch('/api/projects'),
         fetch('/api/tasks'),
@@ -91,6 +92,16 @@ export default function Dashboard() {
         fetch('/api/bots'),
         fetch('/api/sync/status'),
       ]);
+
+      console.log('Response statuses:', {
+        projects: projectsRes.status,
+        tasks: tasksRes.status,
+        events: eventsRes.status,
+        blockers: blockersRes.status,
+        research: researchRes.status,
+        bots: botsRes.status,
+        sync: syncRes.status,
+      });
 
       const [projectsData, tasksData, eventsData, blockersData, researchData, botsData, syncData] = await Promise.all([
         projectsRes.json(),
@@ -102,6 +113,16 @@ export default function Dashboard() {
         syncRes.json(),
       ]);
 
+      console.log('Data received:', {
+        projects: Array.isArray(projectsData) ? projectsData.length : typeof projectsData,
+        tasks: Array.isArray(tasksData) ? tasksData.length : typeof tasksData,
+        events: Array.isArray(eventsData) ? eventsData.length : typeof eventsData,
+        blockers: Array.isArray(blockersData) ? blockersData.length : typeof blockersData,
+        research: Array.isArray(researchData) ? researchData.length : typeof researchData,
+        bots: Array.isArray(botsData) ? botsData.length : typeof botsData,
+        sync: syncData,
+      });
+
       setProjects(projectsData);
       setTasks(tasksData.filter((t: Task) => t.status !== 'completed').slice(0, 10));
       setEvents(eventsData.slice(0, 5));
@@ -111,6 +132,7 @@ export default function Dashboard() {
       setSyncStatus(syncData);
     } catch (error) {
       console.error('Error fetching data:', error);
+      alert('Fetch error: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       setIsLoading(false);
     }
