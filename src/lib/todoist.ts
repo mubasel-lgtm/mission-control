@@ -1,5 +1,5 @@
 const TODOIST_API_TOKEN = process.env.TODOIST_API_TOKEN || 'db85fc7c526a7bd2d575f44a4293ef7ff70fa1ca';
-const TODOIST_API_URL = 'https://api.todoist.com/rest/v2';
+const TODOIST_API_URL = 'https://api.todoist.com/api/v1';
 
 export interface TodoistTask {
   id: string;
