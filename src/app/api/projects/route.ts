@@ -1,71 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, ensureTables } from '@/lib/db';
-import crypto from 'crypto';
+import { fetchTodoistProjects } from '@/lib/todoist';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/projects - List all projects
+// GET /api/projects - Fetch directly from Todoist
 export async function GET(request: NextRequest) {
   try {
-    const db = getDb();
-    await ensureTables();
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get('status');
+    const projects = await fetchTodoistProjects();
     
-    let query = 'SELECT * FROM projects';
-    const params: any[] = [];
+    // Transform to our format
+    const formattedProjects = projects.map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      description: '',
+      status: 'active',
+      priority: 'medium',
+      progress: 0,
+      todoist_project_id: p.id,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }));
     
-    if (status) {
-      query += ' WHERE status = ?';
-      params.push(status);
-    }
-    
-    query += ' ORDER BY priority ASC, created_at DESC';
-    
-    const projects = await db.prepare(query).all(...params);
-    
-    return NextResponse.json(projects);
+    return NextResponse.json(formattedProjects);
   } catch (error) {
     console.error('Error fetching projects:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch projects' },
-      { status: 500 }
-    );
-  }
-}
-
-// POST /api/projects - Create a new project
-export async function POST(request: NextRequest) {
-  try {
-    const db = getDb();
-    await ensureTables();
-    const body = await request.json();
-    
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    
-    await db.prepare(`
-      INSERT INTO projects (id, name, description, status, priority, progress, due_date, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id,
-      body.name,
-      body.description || null,
-      body.status || 'active',
-      body.priority || 'medium',
-      body.progress || 0,
-      body.dueDate || null,
-      now,
-      now
-    );
-    
-    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
-    return NextResponse.json(project, { status: 201 });
-  } catch (error) {
-    console.error('Error creating project:', error);
-    return NextResponse.json(
-      { error: 'Failed to create project' },
-      { status: 500 }
-    );
+    return NextResponse.json([]);
   }
 }
