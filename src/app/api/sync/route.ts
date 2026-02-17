@@ -32,21 +32,21 @@ export async function POST(request: NextRequest) {
       
       for (const task of todoistTasks) {
         const id = crypto.randomUUID();
-        insertOrUpdate.run(
+        await insertOrUpdate.run(
           id,
           task.content,
-          task.description,
-          task.is_completed ? 'completed' : 'todo',
+          task.description || '',
+          task.checked ? 'completed' : 'todo',
           mapTodoistPriority(task.priority),
           task.id,
           task.due?.date || null,
-          JSON.stringify(task.labels),
-          task.url,
+          JSON.stringify(task.labels || []),
+          task.url || `https://todoist.com/showTask?id=${task.id}`,
           now
         );
       }
       
-      db.prepare('UPDATE sync_metadata SET last_todoist_sync = ? WHERE id = 1').run(now);
+      await db.prepare('UPDATE sync_metadata SET last_todoist_sync = ? WHERE id = 1').run(now);
       results.todoist = { success: true, count: todoistTasks.length };
     } catch (error) {
       console.error('Todoist sync error:', error);
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
     try {
       const events = await fetchUpcomingEvents(7);
       const now = new Date().toISOString();
-      db.prepare('UPDATE sync_metadata SET last_calendar_sync = ? WHERE id = 1').run(now);
+      await db.prepare('UPDATE sync_metadata SET last_calendar_sync = ? WHERE id = 1').run(now);
       results.calendar = { success: true, count: events.length };
     } catch (error) {
       console.error('Calendar sync error:', error);
@@ -87,11 +87,11 @@ interface SyncMetadata {
 export async function GET(request: NextRequest) {
   try {
     const db = getDb();
-    const metadata = db.prepare('SELECT * FROM sync_metadata WHERE id = 1').get() as SyncMetadata | undefined;
+    const metadata = await db.prepare('SELECT * FROM sync_metadata WHERE id = 1').get() as SyncMetadata | undefined;
     
     // Get counts
-    const taskCount = db.prepare('SELECT COUNT(*) as count FROM tasks').get() as { count: number };
-    const projectCount = db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
+    const taskCount = await db.prepare('SELECT COUNT(*) as count FROM tasks').get() as { count: number };
+    const projectCount = await db.prepare('SELECT COUNT(*) as count FROM projects').get() as { count: number };
     
     return NextResponse.json({
       lastTodoistSync: metadata?.last_todoist_sync,
