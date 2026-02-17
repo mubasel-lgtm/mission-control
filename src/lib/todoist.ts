@@ -47,7 +47,9 @@ export async function fetchTodoistTasks(filters?: { projectId?: string; label?: 
   }
 
   const data = await response.json();
-  return data.results || data;
+  // Handle both v1 API ({results: [...]}) and direct array responses
+  const tasks = data.results || data;
+  return Array.isArray(tasks) ? tasks : [];
 }
 
 export async function fetchTodoistProjects(): Promise<TodoistProject[]> {
@@ -64,7 +66,9 @@ export async function fetchTodoistProjects(): Promise<TodoistProject[]> {
   }
 
   const data = await response.json();
-  return data.results || data;
+  // Handle both v1 API ({results: [...]}) and direct array responses
+  const projects = data.results || data;
+  return Array.isArray(projects) ? projects : [];
 }
 
 export async function completeTodoistTask(taskId: string): Promise<void> {
