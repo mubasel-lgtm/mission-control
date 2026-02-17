@@ -41,7 +41,7 @@ export function getDb(): Database {
       }
     }
     // Initialize tables synchronously
-    initTablesSync();
+    // Tables will be initialized lazily via ensureTables()
   }
   return db;
 }
