@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     
     query += ' ORDER BY priority ASC, created_at DESC';
     
-    const tasks = db.prepare(query).all(...params);
+    const tasks = await db.prepare(query).all(...params);
     
     return NextResponse.json(tasks);
   } catch (error) {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO tasks (id, title, description, status, priority, project_id, due_date, labels, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
       now
     );
     
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
+    const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(id);
     return NextResponse.json(task, { status: 201 });
   } catch (error) {
     console.error('Error creating task:', error);
@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
 async function syncTodoistTasks(db: any) {
   try {
     const todoistTasks = await fetchTodoistTasks();
+    const crypto = await import('crypto');
     
     const insertOrUpdate = db.prepare(`
       INSERT INTO tasks (id, title, description, status, priority, todoist_task_id, due_date, labels, url, updated_at)
@@ -109,7 +110,7 @@ async function syncTodoistTasks(db: any) {
     
     for (const task of todoistTasks) {
       const id = crypto.randomUUID();
-      insertOrUpdate.run(
+      await insertOrUpdate.run(
         id,
         task.content,
         task.description,
@@ -124,7 +125,7 @@ async function syncTodoistTasks(db: any) {
     }
     
     // Update sync metadata
-    db.prepare('UPDATE sync_metadata SET last_todoist_sync = ? WHERE id = 1').run(now);
+    await db.prepare('UPDATE sync_metadata SET last_todoist_sync = ? WHERE id = 1').run(now);
     
     console.log(`Synced ${todoistTasks.length} tasks from Todoist`);
   } catch (error) {

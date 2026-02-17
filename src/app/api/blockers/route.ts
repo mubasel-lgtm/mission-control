@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     
     query += ' ORDER BY CASE severity WHEN "blocking" THEN 1 WHEN "warning" THEN 2 ELSE 3 END, created_at DESC';
     
-    const blockers = db.prepare(query).all(...params);
+    const blockers = await db.prepare(query).all(...params);
     
     return NextResponse.json(blockers);
   } catch (error) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO blockers (id, title, description, project_id, severity, status, assigned_to, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
       now
     );
     
-    const blocker = db.prepare('SELECT * FROM blockers WHERE id = ?').get(id);
+    const blocker = await db.prepare('SELECT * FROM blockers WHERE id = ?').get(id);
     return NextResponse.json(blocker, { status: 201 });
   } catch (error) {
     console.error('Error creating blocker:', error);

@@ -13,7 +13,7 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     
-    const logs = db.prepare(
+    const logs = await db.prepare(
       'SELECT * FROM bot_logs WHERE bot_id = ? ORDER BY timestamp DESC LIMIT ?'
     ).all(params.id, limit);
     
@@ -39,7 +39,7 @@ export async function POST(
     
     const id = crypto.randomUUID();
     
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO bot_logs (id, bot_id, level, message)
       VALUES (?, ?, ?, ?)
     `).run(
@@ -51,9 +51,9 @@ export async function POST(
     
     // Update bot's last_run
     const now = new Date().toISOString();
-    db.prepare('UPDATE bots SET last_run = ? WHERE id = ?').run(now, params.id);
+    await db.prepare('UPDATE bots SET last_run = ? WHERE id = ?').run(now, params.id);
     
-    const log = db.prepare('SELECT * FROM bot_logs WHERE id = ?').get(id);
+    const log = await db.prepare('SELECT * FROM bot_logs WHERE id = ?').get(id);
     return NextResponse.json(log, { status: 201 });
   } catch (error) {
     console.error('Error creating bot log:', error);

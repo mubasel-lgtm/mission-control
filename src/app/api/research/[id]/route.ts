@@ -13,12 +13,12 @@ export async function PATCH(
     const body = await request.json();
     const now = new Date().toISOString();
     
-    const existing = db.prepare('SELECT * FROM research WHERE id = ?').get(params.id);
+    const existing = await db.prepare('SELECT * FROM research WHERE id = ?').get(params.id);
     if (!existing) {
       return NextResponse.json({ error: 'Research item not found' }, { status: 404 });
     }
     
-    db.prepare(`
+    await db.prepare(`
       UPDATE research SET
         title = COALESCE(?, title),
         topic = COALESCE(?, topic),
@@ -41,7 +41,7 @@ export async function PATCH(
       params.id
     );
     
-    const item = db.prepare('SELECT * FROM research WHERE id = ?').get(params.id);
+    const item = await db.prepare('SELECT * FROM research WHERE id = ?').get(params.id);
     return NextResponse.json(item);
   } catch (error) {
     console.error('Error updating research item:', error);
@@ -59,13 +59,13 @@ export async function DELETE(
 ) {
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM research WHERE id = ?').get(params.id);
+    const existing = await db.prepare('SELECT * FROM research WHERE id = ?').get(params.id);
     
     if (!existing) {
       return NextResponse.json({ error: 'Research item not found' }, { status: 404 });
     }
     
-    db.prepare('DELETE FROM research WHERE id = ?').run(params.id);
+    await db.prepare('DELETE FROM research WHERE id = ?').run(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting research item:', error);

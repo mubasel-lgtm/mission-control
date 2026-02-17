@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     
     query += ' ORDER BY priority ASC, created_at DESC';
     
-    const items = db.prepare(query).all(...params);
+    const items = await db.prepare(query).all(...params);
     
     return NextResponse.json(items);
   } catch (error) {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO research (id, title, topic, status, priority, notes, url, tags, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
       now
     );
     
-    const item = db.prepare('SELECT * FROM research WHERE id = ?').get(id);
+    const item = await db.prepare('SELECT * FROM research WHERE id = ?').get(id);
     return NextResponse.json(item, { status: 201 });
   } catch (error) {
     console.error('Error creating research item:', error);

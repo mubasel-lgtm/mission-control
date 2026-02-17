@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     
     query += ' ORDER BY priority ASC, created_at DESC';
     
-    const projects = db.prepare(query).all(...params);
+    const projects = await db.prepare(query).all(...params);
     
     return NextResponse.json(projects);
   } catch (error) {
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const id = crypto.randomUUID();
     const now = new Date().toISOString();
     
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO projects (id, name, description, status, priority, progress, due_date, created_at, updated_at)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
       now
     );
     
-    const project = db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
+    const project = await db.prepare('SELECT * FROM projects WHERE id = ?').get(id);
     return NextResponse.json(project, { status: 201 });
   } catch (error) {
     console.error('Error creating project:', error);

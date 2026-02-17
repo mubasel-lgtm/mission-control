@@ -4,8 +4,5 @@
   "framework": "nextjs",
   "env": {
     "NODE_ENV": "production"
-  },
-  "protectionBypass": {
-    "default": true
   }
 }

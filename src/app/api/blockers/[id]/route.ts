@@ -13,12 +13,12 @@ export async function PATCH(
     const body = await request.json();
     const now = new Date().toISOString();
     
-    const existing = db.prepare('SELECT * FROM blockers WHERE id = ?').get(params.id);
+    const existing = await db.prepare('SELECT * FROM blockers WHERE id = ?').get(params.id);
     if (!existing) {
       return NextResponse.json({ error: 'Blocker not found' }, { status: 404 });
     }
     
-    db.prepare(`
+    await db.prepare(`
       UPDATE blockers SET
         title = COALESCE(?, title),
         description = COALESCE(?, description),
@@ -37,7 +37,7 @@ export async function PATCH(
       params.id
     );
     
-    const blocker = db.prepare('SELECT * FROM blockers WHERE id = ?').get(params.id);
+    const blocker = await db.prepare('SELECT * FROM blockers WHERE id = ?').get(params.id);
     return NextResponse.json(blocker);
   } catch (error) {
     console.error('Error updating blocker:', error);
@@ -55,13 +55,13 @@ export async function DELETE(
 ) {
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM blockers WHERE id = ?').get(params.id);
+    const existing = await db.prepare('SELECT * FROM blockers WHERE id = ?').get(params.id);
     
     if (!existing) {
       return NextResponse.json({ error: 'Blocker not found' }, { status: 404 });
     }
     
-    db.prepare('DELETE FROM blockers WHERE id = ?').run(params.id);
+    await db.prepare('DELETE FROM blockers WHERE id = ?').run(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting blocker:', error);

@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const db = getDb();
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
+    const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
     
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
@@ -36,12 +36,12 @@ export async function PATCH(
     const body = await request.json();
     const now = new Date().toISOString();
     
-    const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
+    const existing = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
     if (!existing) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
     
-    db.prepare(`
+    await db.prepare(`
       UPDATE tasks SET
         title = COALESCE(?, title),
         description = COALESCE(?, description),
@@ -60,7 +60,7 @@ export async function PATCH(
       params.id
     );
     
-    const task = db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
+    const task = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
     return NextResponse.json(task);
   } catch (error) {
     console.error('Error updating task:', error);
@@ -78,13 +78,13 @@ export async function DELETE(
 ) {
   try {
     const db = getDb();
-    const existing = db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
+    const existing = await db.prepare('SELECT * FROM tasks WHERE id = ?').get(params.id);
     
     if (!existing) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
     
-    db.prepare('DELETE FROM tasks WHERE id = ?').run(params.id);
+    await db.prepare('DELETE FROM tasks WHERE id = ?').run(params.id);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting task:', error);

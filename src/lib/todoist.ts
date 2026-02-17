@@ -9,12 +9,18 @@ export interface TodoistTask {
   due?: {
     date: string;
     datetime?: string;
+    string?: string;
+    lang?: string;
+    is_recurring?: boolean;
   };
   labels: string[];
   project_id: string;
-  url: string;
-  is_completed: boolean;
-  created_at: string;
+  url?: string;
+  // v1 API uses 'checked' instead of 'is_completed'
+  checked?: boolean;
+  is_completed?: boolean;
+  created_at?: string;
+  added_at?: string;
 }
 
 export interface TodoistProject {

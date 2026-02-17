@@ -7,11 +7,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const db = getDb();
-    const bots = db.prepare('SELECT * FROM bots').all();
+    const bots = await db.prepare('SELECT * FROM bots').all();
     
     // Parse config JSON and fetch recent logs
-    const botsWithDetails = bots.map((bot: any) => {
-      const logs = db.prepare(
+    const botsWithDetails = await Promise.all((bots as any[]).map(async (bot: any) => {
+      const logs = await db.prepare(
         'SELECT * FROM bot_logs WHERE bot_id = ? ORDER BY timestamp DESC LIMIT 10'
       ).all(bot.id);
       
@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
         config: bot.config ? JSON.parse(bot.config) : {},
         logs: logs || [],
       };
-    });
+    }));
     
     return NextResponse.json(botsWithDetails);
   } catch (error) {
@@ -43,11 +43,11 @@ export async function POST(request: NextRequest) {
     const now = new Date().toISOString();
     
     // Check if bot exists
-    const existing = db.prepare('SELECT id FROM bots WHERE id = ?').get(id);
+    const existing = await db.prepare('SELECT id FROM bots WHERE id = ?').get(id);
     
     if (existing) {
       // Update existing
-      db.prepare(`
+      await db.prepare(`
         UPDATE bots SET
           name = ?,
           description = ?,
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       );
     } else {
       // Insert new
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO bots (id, name, description, status, schedule, config)
         VALUES (?, ?, ?, ?, ?, ?)
       `).run(
@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const bot = db.prepare('SELECT * FROM bots WHERE id = ?').get(id) as any;
+    const bot = await db.prepare('SELECT * FROM bots WHERE id = ?').get(id) as any;
     return NextResponse.json({
       ...bot,
       config: bot.config ? JSON.parse(bot.config) : {},

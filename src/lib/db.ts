@@ -2,16 +2,17 @@ import path from 'path';
 import fs from 'fs';
 
 // Database interface to abstract both better-sqlite3 and libsql
+// Using Promises to unify sync (better-sqlite3) and async (libsql) APIs
 export interface Database {
   prepare(sql: string): Statement;
-  exec(sql: string): void;
-  pragma(pragma: string): unknown;
+  exec(sql: string): Promise<void> | void;
+  pragma(pragma: string): Promise<unknown> | unknown;
 }
 
 export interface Statement {
-  run(...params: unknown[]): { changes: number; lastInsertRowid: number };
-  get(...params: unknown[]): Record<string, unknown> | undefined;
-  all(...params: unknown[]): Record<string, unknown>[];
+  run(...params: unknown[]): Promise<{ changes: number; lastInsertRowid: number }> | { changes: number; lastInsertRowid: number };
+  get(...params: unknown[]): Promise<Record<string, unknown> | undefined> | Record<string, unknown> | undefined;
+  all(...params: unknown[]): Promise<Record<string, unknown>[]> | Record<string, unknown>[];
 }
 
 // Check if we're in a serverless environment (Vercel)
@@ -21,10 +22,21 @@ let db: Database | null = null;
 
 export function getDb(): Database {
   if (!db) {
+    // Try better-sqlite3 first for local development
+    // but use libsql on Vercel or if better-sqlite3 fails
     if (isServerless) {
+      console.log('Serverless environment detected, using libsql');
       db = createLibSqlDb();
     } else {
-      db = createBetterSqliteDb();
+      console.log('Local environment, trying better-sqlite3');
+      try {
+        // Check if better-sqlite3 is available
+        require.resolve('better-sqlite3');
+        db = createBetterSqliteDb();
+      } catch (error) {
+        console.warn('better-sqlite3 not available, falling back to libsql:', error);
+        db = createLibSqlDb();
+      }
     }
     initTables();
   }
@@ -33,29 +45,34 @@ export function getDb(): Database {
 
 // Better-sqlite3 implementation (local development)
 function createBetterSqliteDb(): Database {
-  const Database = require('better-sqlite3');
-  const DB_DIR = path.join(process.cwd(), 'data');
-  const DB_PATH = path.join(DB_DIR, 'mission-control.db');
+  try {
+    const Database = require('better-sqlite3');
+    const DB_DIR = path.join(process.cwd(), 'data');
+    const DB_PATH = path.join(DB_DIR, 'mission-control.db');
 
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+
+    const sqliteDb = new Database(DB_PATH);
+    sqliteDb.pragma('journal_mode = WAL');
+
+    return {
+      prepare: (sql: string) => {
+        const stmt = sqliteDb.prepare(sql);
+        return {
+          run: (...params: unknown[]) => stmt.run(...params),
+          get: (...params: unknown[]) => stmt.get(...params) as Record<string, unknown> | undefined,
+          all: (...params: unknown[]) => stmt.all(...params) as Record<string,unknown>[],
+        };
+      },
+      exec: (sql: string) => sqliteDb.exec(sql),
+      pragma: (pragma: string) => sqliteDb.pragma(pragma),
+    };
+  } catch (error) {
+    console.warn('better-sqlite3 not available, falling back to libsql:', error);
+    return createLibSqlDb();
   }
-
-  const sqliteDb = new Database(DB_PATH);
-  sqliteDb.pragma('journal_mode = WAL');
-
-  return {
-    prepare: (sql: string) => {
-      const stmt = sqliteDb.prepare(sql);
-      return {
-        run: (...params: unknown[]) => stmt.run(...params),
-        get: (...params: unknown[]) => stmt.get(...params) as Record<string, unknown> | undefined,
-        all: (...params: unknown[]) => stmt.all(...params) as Record<string,unknown>[],
-      };
-    },
-    exec: (sql: string) => sqliteDb.exec(sql),
-    pragma: (pragma: string) => sqliteDb.pragma(pragma),
-  };
 }
 
 // LibSQL implementation (Vercel/serverless)
@@ -69,9 +86,6 @@ function createLibSqlDb(): Database {
 
   return {
     prepare: (sql: string) => {
-      // For INSERT/UPDATE/DELETE statements
-      const isWrite = /^(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER)/i.test(sql.trim());
-      
       return {
         run: async (...params: unknown[]) => {
           const result = await client.execute({ sql, args: params as (string | number | null)[] });

@@ -32,11 +32,12 @@ export async function POST(request: NextRequest) {
       
       for (const task of todoistTasks) {
         const id = crypto.randomUUID();
+        const isCompleted = task.checked ?? task.is_completed ?? false;
         await insertOrUpdate.run(
           id,
           task.content,
           task.description || '',
-          task.checked ? 'completed' : 'todo',
+          isCompleted ? 'completed' : 'todo',
           mapTodoistPriority(task.priority),
           task.id,
           task.due?.date || null,

@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@libsql/client": "^0.17.0",
-    "better-sqlite3": "^11.5.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
@@ -24,8 +23,11 @@
     "tailwind-merge": "^2.5.4",
     "tailwindcss-animate": "^1.0.7"
   },
+  "optionalDependencies": {
+    "better-sqlite3": "^11.5.0"
+  },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.12",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.16.13",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.1",
