@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const bot = db.prepare('SELECT * FROM bots WHERE id = ?').get(id);
+    const bot = db.prepare('SELECT * FROM bots WHERE id = ?').get(id) as any;
     return NextResponse.json({
       ...bot,
       config: bot.config ? JSON.parse(bot.config) : {},
