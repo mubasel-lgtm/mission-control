@@ -18,13 +18,18 @@ type DashboardData = {
 
 export default function OrchestrationPage() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [support, setSupport] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
     setLoading(true);
-    const r = await fetch('/api/orchestration/dashboard');
-    const j = await r.json();
-    setData(j);
+    const [r1, r2] = await Promise.all([
+      fetch('/api/orchestration/dashboard'),
+      fetch('/api/orchestration/support-report'),
+    ]);
+    const [j1, j2] = await Promise.all([r1.json(), r2.json()]);
+    setData(j1);
+    setSupport(j2);
     setLoading(false);
   };
 
@@ -56,6 +61,33 @@ export default function OrchestrationPage() {
         <Stat title="Escalations" value={data.stats.openEscalations} />
         <Stat title="Bots" value={data.stats.botsTotal} />
       </div>
+
+      <section className="rounded-xl border p-4">
+        <h2 className="font-semibold mb-3">Louisa Support Report</h2>
+        {!support?.hasReport ? (
+          <div className="text-sm opacity-70">No support report submitted yet.</div>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <div className="grid grid-cols-3 gap-2">
+              <Stat title="Tickets today" value={support.ticketsToday ?? 0} />
+              <Stat title="Resolved" value={support.resolvedToday ?? 0} />
+              <Stat title="Backlog" value={support.backlog ?? 0} />
+            </div>
+            <div>
+              <div className="font-medium">Top obstacles</div>
+              <ul className="list-disc ml-5 opacity-80">
+                {(support.topObstacles || []).slice(0,5).map((o:string,i:number)=><li key={i}>{o}</li>)}
+              </ul>
+            </div>
+            <div>
+              <div className="font-medium">Important tickets</div>
+              <ul className="list-disc ml-5 opacity-80">
+                {(support.importantTickets || []).slice(0,5).map((o:string,i:number)=><li key={i}>{o}</li>)}
+              </ul>
+            </div>
+          </div>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <section className="xl:col-span-1 rounded-xl border p-4">
