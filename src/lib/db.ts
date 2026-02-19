@@ -14,12 +14,32 @@ export interface Statement {
 
 let pool: Pool | null = null;
 
+function resolveConnectionString(): string | null {
+  const direct = process.env.DATABASE_URL;
+  if (direct && direct.trim()) return direct.trim();
+
+  const publicUrl = process.env.DATABASE_PUBLIC_URL;
+  if (publicUrl && publicUrl.trim()) return publicUrl.trim();
+
+  const host = process.env.PGHOST;
+  const port = process.env.PGPORT || '5432';
+  const user = process.env.PGUSER || process.env.POSTGRES_USER;
+  const pass = process.env.PGPASSWORD || process.env.POSTGRES_PASSWORD;
+  const db = process.env.PGDATABASE || process.env.POSTGRES_DB || 'postgres';
+
+  if (host && user && pass) {
+    return `postgresql://${encodeURIComponent(user)}:${encodeURIComponent(pass)}@${host}:${port}/${db}`;
+  }
+
+  return null;
+}
+
 export function getDb(): Database {
   if (!pool) {
-    const connectionString = process.env.DATABASE_URL;
+    const connectionString = resolveConnectionString();
     
     if (!connectionString) {
-      throw new Error('DATABASE_URL environment variable is not set');
+      throw new Error('No PostgreSQL connection variables found (DATABASE_URL/DATABASE_PUBLIC_URL/PG*).');
     }
 
     pool = new Pool({
