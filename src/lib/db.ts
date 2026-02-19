@@ -14,6 +14,11 @@ export interface Statement {
 
 let pool: Pool | null = null;
 
+function toPgSql(sql: string): string {
+  let i = 0;
+  return sql.replace(/\?/g, () => `$${++i}`);
+}
+
 function resolveConnectionString(): string | null {
   const direct = process.env.DATABASE_URL;
   if (direct && direct.trim()) return direct.trim();
@@ -60,18 +65,21 @@ export function getDb(): Database {
     prepare: (sql: string) => {
       return {
         run: async (...params: unknown[]) => {
-          const result = await pool!.query(sql, params as (string | number | null)[]);
+          const pgSql = toPgSql(sql);
+          const result = await pool!.query(pgSql, params as (string | number | null)[]);
           return {
             changes: result.rowCount || 0,
             lastInsertRowid: 0, // PostgreSQL uses SERIAL, use query returning for specific cases
           };
         },
         get: async (...params: unknown[]) => {
-          const result = await pool!.query(sql, params as (string | number | null)[]);
+          const pgSql = toPgSql(sql);
+          const result = await pool!.query(pgSql, params as (string | number | null)[]);
           return result.rows[0] as Record<string, unknown> | undefined;
         },
         all: async (...params: unknown[]) => {
-          const result = await pool!.query(sql, params as (string | number | null)[]);
+          const pgSql = toPgSql(sql);
+          const result = await pool!.query(pgSql, params as (string | number | null)[]);
           return result.rows as Record<string, unknown>[];
         },
       };
