@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       query += ' WHERE ' + conditions.join(' AND ');
     }
     
-    query += ' ORDER BY CASE severity WHEN "blocking" THEN 1 WHEN "warning" THEN 2 ELSE 3 END, created_at DESC';
+    query += " ORDER BY CASE severity WHEN 'blocking' THEN 1 WHEN 'warning' THEN 2 ELSE 3 END, created_at DESC";
     
     const blockers = await db.prepare(query).all(...params);
     
