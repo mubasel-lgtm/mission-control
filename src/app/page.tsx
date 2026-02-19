@@ -71,6 +71,7 @@ function Section({ title, icon, children, action }: SectionProps) {
 export default function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [blockers, setBlockers] = useState<Blocker[]>([]);
   const [research, setResearch] = useState<ResearchItem[]>([]);
@@ -106,9 +107,11 @@ export default function Dashboard() {
       ]);
 
       setProjects(projectsData.status === 'fulfilled' && Array.isArray(projectsData.value) ? projectsData.value : []);
-      setTasks(tasksData.status === 'fulfilled' && Array.isArray(tasksData.value)
-        ? tasksData.value.filter((t: Task) => t.status !== 'completed').slice(0, 10)
-        : []);
+      const pendingTasks = tasksData.status === 'fulfilled' && Array.isArray(tasksData.value)
+        ? tasksData.value.filter((t: Task) => t.status !== 'completed')
+        : [];
+      setAllTasks(pendingTasks);
+      setTasks(pendingTasks.slice(0, 10));
       setEvents(eventsData.status === 'fulfilled' && Array.isArray(eventsData.value) ? eventsData.value.slice(0, 5) : []);
       setBlockers(blockersData.status === 'fulfilled' && Array.isArray(blockersData.value)
         ? blockersData.value.filter((b: Blocker) => b.status !== 'resolved').slice(0, 5)
@@ -148,7 +151,7 @@ export default function Dashboard() {
   }, []);
 
   const activeProjects = projects.filter(p => p.status === 'active').length;
-  const pendingTasks = tasks.filter(t => t.status !== 'completed').length;
+  const pendingTasks = allTasks.length;
   const todaysEvents = events.length;
   const openBlockers = blockers.filter(b => b.status === 'open').length;
   const researchQueue = research.filter(r => r.status === 'queued').length;
@@ -284,22 +287,29 @@ export default function Dashboard() {
           >
             <div className="space-y-2">
               {tasks.map(task => (
-                <div key={task.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors group">
-                  <button className="w-5 h-5 rounded border border-muted-foreground/30 flex items-center justify-center hover:border-primary transition-colors">
+                <a
+                  key={task.id}
+                  href={(task as any).url || `https://todoist.com/showTask?id=${task.id}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors group"
+                >
+                  <div className="w-5 h-5 rounded border border-muted-foreground/30 flex items-center justify-center group-hover:border-primary transition-colors">
                     <CheckCircle2 className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                  </button>
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">{task.title}</p>
-                    {task.dueDate && (
+                    {(task as any).due_date && (
                       <p className="text-xs text-muted-foreground">
-                        Due {formatRelativeTime(task.dueDate)}
+                        Due {formatRelativeTime((task as any).due_date)}
                       </p>
                     )}
                   </div>
                   <span className={cn("px-2 py-0.5 text-xs rounded-full", getPriorityColor(String(task.priority)))}>
                     P{task.priority}
                   </span>
-                </div>
+                  <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
+                </a>
               ))}
               {tasks.length === 0 && (
                 <p className="text-muted-foreground text-sm">No pending tasks</p>
