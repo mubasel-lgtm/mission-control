@@ -141,6 +141,50 @@ export async function ensureTables() {
         message TEXT
       );
       
+      
+      CREATE TABLE IF NOT EXISTS orchestration_tasks (
+        id TEXT PRIMARY KEY,
+        title TEXT NOT NULL,
+        objective TEXT NOT NULL,
+        definition_of_done TEXT NOT NULL,
+        owner_bot TEXT NOT NULL,
+        priority TEXT DEFAULT 'P2',
+        status TEXT DEFAULT 'queued',
+        due_at TEXT,
+        constraints_json TEXT,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS worker_reports (
+        id TEXT PRIMARY KEY,
+        event_type TEXT NOT NULL,
+        bot_id TEXT NOT NULL,
+        task_id TEXT,
+        payload_json TEXT NOT NULL,
+        ts TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS escalations (
+        id TEXT PRIMARY KEY,
+        task_id TEXT,
+        bot_id TEXT,
+        reason TEXT NOT NULL,
+        options_json TEXT,
+        recommendation TEXT,
+        status TEXT DEFAULT 'open',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
+      CREATE TABLE IF NOT EXISTS digests (
+        id TEXT PRIMARY KEY,
+        period TEXT,
+        content TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+      );
+
       CREATE TABLE IF NOT EXISTS sync_metadata (
         id INTEGER PRIMARY KEY,
         last_todoist_sync TEXT,
