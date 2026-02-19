@@ -1,477 +1,241 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Project, Task, Blocker, ResearchItem, ClaudeBot, CalendarEvent } from '@/types';
-import { cn, getPriorityColor, getStatusColor, formatDate, formatRelativeTime } from '@/lib/utils';
-import { 
-  LayoutDashboard, 
-  CheckSquare, 
-  Calendar, 
-  AlertCircle, 
-  BookOpen, 
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarEvent, Project, Task } from '@/types';
+import {
   Bot,
-  RefreshCw,
-  Plus,
+  Calendar,
+  CheckSquare,
   ExternalLink,
-  Clock,
-  MoreHorizontal,
-  Play,
-  Pause,
-  AlertTriangle,
-  CheckCircle2
+  Layers,
+  LayoutDashboard,
+  Library,
+  Users,
 } from 'lucide-react';
 
-interface StatCardProps {
-  title: string;
-  value: number;
-  icon: React.ReactNode;
-  color: string;
-}
+type TabKey = 'tasks' | 'content' | 'calendar' | 'memory' | 'team' | 'office';
 
-function StatCard({ title, value, icon, color }: StatCardProps) {
-  return (
-    <div className="rounded-xl bg-card p-6 border border-border">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-muted-foreground">{title}</p>
-          <p className="text-3xl font-bold mt-1">{value}</p>
-        </div>
-        <div className={cn("p-3 rounded-lg", color)}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-}
+type Agent = {
+  name: string;
+  role: string;
+  responsibility: string;
+  status: 'working' | 'idle';
+};
 
-interface SectionProps {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  action?: React.ReactNode;
-}
+const tabs: Array<{ key: TabKey; label: string; icon: any }> = [
+  { key: 'tasks', label: 'Tasks Board', icon: CheckSquare },
+  { key: 'content', label: 'Content Pipeline', icon: Layers },
+  { key: 'calendar', label: 'Calendar', icon: Calendar },
+  { key: 'memory', label: 'Memory', icon: Library },
+  { key: 'team', label: 'Team', icon: Users },
+  { key: 'office', label: 'Office', icon: Bot },
+];
 
-function Section({ title, icon, children, action }: SectionProps) {
-  return (
-    <div className="rounded-xl bg-card border border-border overflow-hidden">
-      <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          {icon}
-          <h2 className="text-lg font-semibold">{title}</h2>
-        </div>
-        {action}
-      </div>
-      <div className="p-6">
-        {children}
-      </div>
-    </div>
-  );
-}
+const teamTemplate: Agent[] = [
+  { name: 'Marvin', role: 'Manager', responsibility: 'Orchestration + escalation', status: 'working' },
+  { name: 'Louisa', role: 'Support Ops', responsibility: 'Support reporting + blockers', status: 'working' },
+  { name: 'Builder', role: 'Developer', responsibility: 'Implementation + deployments', status: 'working' },
+  { name: 'Writer', role: 'Writer', responsibility: 'Briefs + scripts + docs', status: 'idle' },
+  { name: 'Designer', role: 'Designer', responsibility: 'Thumbnails + visual assets', status: 'idle' },
+];
 
-export default function Dashboard() {
-  const [projects, setProjects] = useState<Project[]>([]);
+export default function MissionControlV2() {
+  const [tab, setTab] = useState<TabKey>('tasks');
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
-  const [blockers, setBlockers] = useState<Blocker[]>([]);
-  const [research, setResearch] = useState<ResearchItem[]>([]);
-  const [bots, setBots] = useState<ClaudeBot[]>([]);
-  const [syncStatus, setSyncStatus] = useState<{ lastTodoistSync?: string }>({});
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [syncStatus, setSyncStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const fetchJsonWithTimeout = async (url: string, timeoutMs = 8000) => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const res = await fetch(url, { signal: controller.signal });
-      if (!res.ok) throw new Error(`${url} failed (${res.status})`);
-      return await res.json();
-    } finally {
-      clearTimeout(timer);
-    }
+  const fetchJson = async (url: string) => {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`${url} failed ${res.status}`);
+    return res.json();
   };
 
-  // Fetch all data
-  const fetchData = async () => {
+  const refresh = async () => {
     try {
-      console.log('Fetching data...');
-      const [projectsData, tasksData, eventsData, blockersData, researchData, botsData, syncData] = await Promise.allSettled([
-        fetchJsonWithTimeout('/api/projects'),
-        fetchJsonWithTimeout('/api/tasks'),
-        fetchJsonWithTimeout('/api/calendar/events?range=today'),
-        fetchJsonWithTimeout('/api/blockers'),
-        fetchJsonWithTimeout('/api/research'),
-        fetchJsonWithTimeout('/api/bots'),
-        fetchJsonWithTimeout('/api/sync'),
+      const [tasksData, projectsData, eventsData, syncData] = await Promise.all([
+        fetchJson('/api/tasks'),
+        fetchJson('/api/projects'),
+        fetchJson('/api/calendar/events?range=today'),
+        fetchJson('/api/sync/status'),
       ]);
-
-      setProjects(projectsData.status === 'fulfilled' && Array.isArray(projectsData.value) ? projectsData.value : []);
-      const pendingTasks = tasksData.status === 'fulfilled' && Array.isArray(tasksData.value)
-        ? tasksData.value.filter((t: Task) => t.status !== 'completed')
-        : [];
-      setAllTasks(pendingTasks);
-      setTasks(pendingTasks.slice(0, 10));
-      setEvents(eventsData.status === 'fulfilled' && Array.isArray(eventsData.value) ? eventsData.value.slice(0, 5) : []);
-      setBlockers(blockersData.status === 'fulfilled' && Array.isArray(blockersData.value)
-        ? blockersData.value.filter((b: Blocker) => b.status !== 'resolved').slice(0, 5)
-        : []);
-      setResearch(researchData.status === 'fulfilled' && Array.isArray(researchData.value) ? researchData.value.slice(0, 5) : []);
-      setBots(botsData.status === 'fulfilled' && Array.isArray(botsData.value) ? botsData.value : []);
-      setSyncStatus(syncData.status === 'fulfilled' && syncData.value ? syncData.value : {});
-    } catch (error) {
-      console.error('Error fetching data:', error);
+      setTasks(Array.isArray(tasksData) ? tasksData : []);
+      setProjects(Array.isArray(projectsData) ? projectsData : []);
+      setEvents(Array.isArray(eventsData) ? eventsData : []);
+      setSyncStatus(syncData ?? null);
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Sync with external services
-  const handleSync = async () => {
-    setIsSyncing(true);
-    try {
-      await fetch('/api/sync', { method: 'POST' });
-      await fetchData();
-    } catch (error) {
-      console.error('Sync error:', error);
-    } finally {
-      setIsSyncing(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
-    const loadingGuard = setTimeout(() => setIsLoading(false), 10000);
-    // Auto-refresh every 5 minutes
-    const interval = setInterval(fetchData, 5 * 60 * 1000);
-    return () => {
-      clearInterval(interval);
-      clearTimeout(loadingGuard);
-    };
+    refresh();
+    const id = setInterval(refresh, 60_000);
+    return () => clearInterval(id);
   }, []);
 
-  const activeProjects = projects.filter(p => p.status === 'active').length;
-  const pendingTasks = allTasks.length;
-  const todaysEvents = events.length;
-  const openBlockers = blockers.filter(b => b.status === 'open').length;
-  const researchQueue = research.filter(r => r.status === 'queued').length;
-  const activeBots = bots.filter(b => b.status === 'active').length;
+  const projectById = useMemo(() => new Map(projects.map((p: any) => [p.id, p.name])), [projects]);
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex items-center gap-3">
-          <RefreshCw className="w-6 h-6 animate-spin" />
-          <span className="text-lg">Loading Mission Control...</span>
-        </div>
-      </div>
-    );
+  const normalizedTasks = useMemo(() => {
+    return tasks.map((t: any) => {
+      const projectName = projectById.get(t.project_id) || 'Unknown';
+      const assignee = /mubasel/i.test(projectName)
+        ? 'Mubasel'
+        : /marvin/i.test(projectName)
+          ? 'Marvin'
+          : /brain rot/i.test(projectName)
+            ? 'Brain Rot'
+            : 'Unassigned';
+      return { ...t, assignee };
+    });
+  }, [tasks, projectById]);
+
+  const todo = normalizedTasks.filter((t: any) => t.status === 'todo');
+  const inProgress = normalizedTasks.filter((t: any) => t.status === 'in_progress');
+  const done = normalizedTasks.filter((t: any) => t.status === 'completed');
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading Mission Control…</div>;
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <LayoutDashboard className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold">Mission Control</h1>
-                <p className="text-xs text-muted-foreground">
-                  Last sync: {syncStatus.lastTodoistSync ? formatRelativeTime(syncStatus.lastTodoistSync) : 'Never'}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors"
-            >
-              <RefreshCw className={cn("w-4 h-4", isSyncing && "animate-spin")} />
-              {isSyncing ? 'Syncing...' : 'Sync'}
-            </button>
+    <div className="min-h-screen bg-background text-foreground">
+      <header className="border-b border-border bg-card/60">
+        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <LayoutDashboard className="w-5 h-5" />
+            <h1 className="font-bold text-lg">Mission Control</h1>
           </div>
+          <div className="text-xs text-muted-foreground">
+            Last sync: {syncStatus?.lastTodoistSync ? new Date(syncStatus.lastTodoistSync).toLocaleString() : 'n/a'}
+          </div>
+        </div>
+        <div className="max-w-7xl mx-auto px-4 pb-3 flex flex-wrap gap-2">
+          {tabs.map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`px-3 py-2 rounded-lg text-sm flex items-center gap-2 border ${tab === key ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
+            >
+              <Icon className="w-4 h-4" />
+              {label}
+            </button>
+          ))}
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <StatCard
-            title="Active Projects"
-            value={activeProjects}
-            icon={<LayoutDashboard className="w-5 h-5" />}
-            color="bg-blue-500/10 text-blue-500"
-          />
-          <StatCard
-            title="Pending Tasks"
-            value={pendingTasks}
-            icon={<CheckSquare className="w-5 h-5" />}
-            color="bg-yellow-500/10 text-yellow-500"
-          />
-          <StatCard
-            title="Today's Events"
-            value={todaysEvents}
-            icon={<Calendar className="w-5 h-5" />}
-            color="bg-purple-500/10 text-purple-500"
-          />
-          <StatCard
-            title="Blockers"
-            value={openBlockers}
-            icon={<AlertCircle className="w-5 h-5" />}
-            color="bg-red-500/10 text-red-500"
-          />
-          <StatCard
-            title="Research Queue"
-            value={researchQueue}
-            icon={<BookOpen className="w-5 h-5" />}
-            color="bg-green-500/10 text-green-500"
-          />
-          <StatCard
-            title="Active Bots"
-            value={activeBots}
-            icon={<Bot className="w-5 h-5" />}
-            color="bg-cyan-500/10 text-cyan-500"
-          />
-        </div>
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {tab === 'tasks' && (
+          <>
+            <p className="text-sm text-muted-foreground mb-4">
+              Real synced tasks. Click a task to open it in Todoist.
+            </p>
+            <div className="grid md:grid-cols-3 gap-4">
+              <TaskColumn title={`Todo (${todo.length})`} tasks={todo} />
+              <TaskColumn title={`In Progress (${inProgress.length})`} tasks={inProgress} />
+              <TaskColumn title={`Done (${done.length})`} tasks={done} />
+            </div>
+          </>
+        )}
 
-        {/* Dashboard Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-          {/* Projects Section */}
-          <Section
-            title="Active Projects"
-            icon={<LayoutDashboard className="w-5 h-5 text-blue-500" />}
-            action={
-              <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                <Plus className="w-4 h-4" />
-              </button>
-            }
-          >
-            <div className="space-y-3">
-              {projects.filter(p => p.status === 'active').map(project => (
-                <div key={project.id} className="p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <h3 className="font-medium">{project.name}</h3>
-                    <span className={cn("px-2 py-0.5 text-xs rounded-full", getPriorityColor(project.priority))}>
-                      {project.priority}
-                    </span>
+        {tab === 'content' && (
+          <div className="grid md:grid-cols-4 gap-4">
+            {['Ideas', 'Script', 'Thumbnail', 'Filming'].map((col) => (
+              <div key={col} className="rounded-xl border border-border p-4 bg-card">
+                <h3 className="font-semibold mb-2">{col}</h3>
+                <p className="text-sm text-muted-foreground">Pipeline stage ready. Next: inline create/edit + attachments.</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === 'calendar' && (
+          <div className="rounded-xl border border-border p-4 bg-card">
+            <h3 className="font-semibold mb-3">Scheduled Work (Today)</h3>
+            <div className="space-y-2">
+              {events.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No events today.</p>
+              ) : (
+                events.map((e: any) => (
+                  <div key={e.id} className="p-3 rounded border border-border">
+                    <div className="font-medium">{e.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {new Date(e.startTime).toLocaleTimeString()} - {new Date(e.endTime).toLocaleTimeString()}
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full transition-all"
-                      style={{ width: `${project.progress}%` }}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">{project.progress}% complete</p>
-                </div>
-              ))}
-              {projects.filter(p => p.status === 'active').length === 0 && (
-                <p className="text-muted-foreground text-sm">No active projects</p>
+                ))
               )}
             </div>
-          </Section>
+          </div>
+        )}
 
-          {/* Tasks Section */}
-          <Section
-            title="Recent Tasks"
-            icon={<CheckSquare className="w-5 h-5 text-yellow-500" />}
-            action={
-              <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                <Plus className="w-4 h-4" />
-              </button>
-            }
-          >
-            <div className="space-y-2">
-              {tasks.map(task => (
-                <a
-                  key={task.id}
-                  href={(task as any).url || `https://todoist.com/showTask?id=${task.id}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted transition-colors group"
-                >
-                  <div className="w-5 h-5 rounded border border-muted-foreground/30 flex items-center justify-center group-hover:border-primary transition-colors">
-                    <CheckCircle2 className="w-3 h-3 opacity-0 group-hover:opacity-100" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{task.title}</p>
-                    {(task as any).due_date && (
-                      <p className="text-xs text-muted-foreground">
-                        Due {formatRelativeTime((task as any).due_date)}
-                      </p>
-                    )}
-                  </div>
-                  <span className={cn("px-2 py-0.5 text-xs rounded-full", getPriorityColor(String(task.priority)))}>
-                    P{task.priority}
+        {tab === 'memory' && (
+          <div className="rounded-xl border border-border p-4 bg-card">
+            <h3 className="font-semibold mb-2">Memory</h3>
+            <p className="text-sm text-muted-foreground">Memory UI scaffold is live. Next step: searchable memory index (daily + long-term) inside this screen.</p>
+          </div>
+        )}
+
+        {tab === 'team' && (
+          <div className="grid md:grid-cols-2 gap-4">
+            {teamTemplate.map((a) => (
+              <div key={a.name} className="rounded-xl border border-border p-4 bg-card">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold">{a.name}</h3>
+                  <span className={`text-xs px-2 py-1 rounded ${a.status === 'working' ? 'bg-green-500/20 text-green-700' : 'bg-yellow-500/20 text-yellow-700'}`}>
+                    {a.status}
                   </span>
-                  <ExternalLink className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100" />
-                </a>
-              ))}
-              {tasks.length === 0 && (
-                <p className="text-muted-foreground text-sm">No pending tasks</p>
-              )}
-            </div>
-          </Section>
-
-          {/* Calendar Section */}
-          <Section
-            title="Today's Schedule"
-            icon={<Calendar className="w-5 h-5 text-purple-500" />}
-          >
-            <div className="space-y-3">
-              {events.map(event => (
-                <div key={event.id} className="flex gap-3 p-3 rounded-lg bg-muted/50">
-                  <div className="text-center min-w-[60px]">
-                    <p className="text-sm font-medium">
-                      {new Date(event.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(event.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{event.title}</p>
-                    {event.location && (
-                      <p className="text-xs text-muted-foreground truncate">📍 {event.location}</p>
-                    )}
-                  </div>
                 </div>
-              ))}
-              {events.length === 0 && (
-                <p className="text-muted-foreground text-sm">No events today</p>
-              )}
-            </div>
-          </Section>
+                <p className="text-sm mt-1">{a.role}</p>
+                <p className="text-xs text-muted-foreground mt-2">{a.responsibility}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
-          {/* Blockers Section (Needs Mubasel) */}
-          <Section
-            title="Needs Mubasel"
-            icon={<AlertCircle className="w-5 h-5 text-red-500" />}
-            action={
-              <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                <Plus className="w-4 h-4" />
-              </button>
-            }
-          >
-            <div className="space-y-2">
-              {blockers.map(blocker => (
-                <div key={blocker.id} className={cn(
-                  "p-3 rounded-lg border-l-4",
-                  blocker.severity === 'blocking' && "border-l-red-500 bg-red-500/5",
-                  blocker.severity === 'warning' && "border-l-yellow-500 bg-yellow-500/5",
-                  blocker.severity === 'info' && "border-l-blue-500 bg-blue-500/5",
-                )}>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      {blocker.severity === 'blocking' && <AlertTriangle className="w-4 h-4 text-red-500" />}
-                      <p className="font-medium text-sm">{blocker.title}</p>
-                    </div>
-                    <span className={cn("px-2 py-0.5 text-xs rounded-full", getStatusColor(blocker.status))}>
-                      {blocker.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-1">{blocker.description}</p>
-                </div>
-              ))}
-              {blockers.length === 0 && (
-                <p className="text-muted-foreground text-sm">No blockers - all clear! 🎉</p>
-              )}
-            </div>
-          </Section>
-
-          {/* Research Queue Section */}
-          <Section
-            title="Research Queue"
-            icon={<BookOpen className="w-5 h-5 text-green-500" />}
-            action={
-              <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-                <Plus className="w-4 h-4" />
-              </button>
-            }
-          >
-            <div className="space-y-2">
-              {research.map(item => (
-                <div key={item.id} className="p-3 rounded-lg hover:bg-muted transition-colors">
-                  <div className="flex items-start justify-between">
-                    <p className="font-medium text-sm">{item.title}</p>
-                    <span className={cn("px-2 py-0.5 text-xs rounded-full", getPriorityColor(item.priority))}>
-                      {item.priority}
-                    </span>
-                  </div>
-                  {item.topic && (
-                    <p className="text-xs text-muted-foreground mt-1">Topic: {item.topic}</p>
-                  )}
-                  {item.tags && item.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {item.tags.map((tag: string, i: number) => (
-                        <span key={i} className="px-1.5 py-0.5 text-xs rounded bg-muted text-muted-foreground">
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-              {research.length === 0 && (
-                <p className="text-muted-foreground text-sm">No research items queued</p>
-              )}
-            </div>
-          </Section>
-
-          {/* Claude Bot Manager Section */}
-          <Section
-            title="Claude Bot Manager"
-            icon={<Bot className="w-5 h-5 text-cyan-500" />}
-          >
-            <div className="space-y-3">
-              {bots.map(bot => (
-                <div key={bot.id} className="p-3 rounded-lg bg-muted/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      {bot.status === 'active' ? (
-                        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                      ) : bot.status === 'error' ? (
-                        <div className="w-2 h-2 rounded-full bg-red-500" />
-                      ) : (
-                        <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                      )}
-                      <span className="font-medium text-sm">{bot.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button className="p-1 hover:bg-muted rounded transition-colors">
-                        {bot.status === 'active' ? (
-                          <Pause className="w-3 h-3" />
-                        ) : (
-                          <Play className="w-3 h-3" />
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{bot.description}</p>
-                  {bot.schedule && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      <Clock className="w-3 h-3 inline mr-1" />
-                      {bot.schedule}
-                    </p>
-                  )}
-                  {bot.lastRun && (
-                    <p className="text-xs text-muted-foreground">
-                      Last run: {formatRelativeTime(bot.lastRun)}
-                    </p>
-                  )}
-                </div>
-              ))}
-              {bots.length === 0 && (
-                <p className="text-muted-foreground text-sm">No bots configured</p>
-              )}
-            </div>
-          </Section>
-        </div>
+        {tab === 'office' && (
+          <div className="grid md:grid-cols-3 gap-4">
+            {teamTemplate.map((a) => (
+              <div key={a.name} className="rounded-xl border border-border p-4 bg-card">
+                <div className="text-3xl mb-2">{a.status === 'working' ? '🧑‍💻' : '☕️'}</div>
+                <div className="font-semibold">{a.name}</div>
+                <div className="text-xs text-muted-foreground">{a.status === 'working' ? 'at computer' : 'idle'}</div>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
+    </div>
+  );
+}
+
+function TaskColumn({ title, tasks }: { title: string; tasks: any[] }) {
+  return (
+    <div className="rounded-xl border border-border bg-card p-3">
+      <h3 className="font-semibold mb-3">{title}</h3>
+      <div className="space-y-2 max-h-[65vh] overflow-auto pr-1">
+        {tasks.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No tasks</p>
+        ) : (
+          tasks.map((t) => (
+            <a
+              key={t.id}
+              href={t.url || `https://todoist.com/showTask?id=${t.id}`}
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-lg border border-border p-3 hover:bg-muted transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-medium leading-snug">{t.title}</p>
+                <ExternalLink className="w-3 h-3 mt-1 shrink-0" />
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">Owner: {t.assignee}</p>
+            </a>
+          ))
+        )}
+      </div>
     </div>
   );
 }
