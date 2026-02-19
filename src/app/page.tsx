@@ -90,7 +90,7 @@ export default function Dashboard() {
         fetch('/api/blockers'),
         fetch('/api/research'),
         fetch('/api/bots'),
-        fetch('/api/sync/status'),
+        fetch('/api/sync'),
       ]);
 
       console.log('Response statuses:', {
