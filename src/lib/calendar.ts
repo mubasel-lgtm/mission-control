@@ -2,6 +2,18 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 const execAsync = promisify(exec);
+let gogAvailable: boolean | null = null;
+
+async function hasGogCli(): Promise<boolean> {
+  if (gogAvailable !== null) return gogAvailable;
+  try {
+    await execAsync('command -v gog');
+    gogAvailable = true;
+  } catch {
+    gogAvailable = false;
+  }
+  return gogAvailable;
+}
 
 export interface CalendarEvent {
   id: string;
@@ -36,6 +48,10 @@ export async function fetchCalendarEvents(
   }
 ): Promise<CalendarEvent[]> {
   try {
+    if (!(await hasGogCli())) {
+      return [];
+    }
+
     // Build gog command with options
     let command = 'gog calendar events';
     
@@ -87,6 +103,10 @@ export async function fetchCalendarEvents(
  */
 export async function fetchCalendars(): Promise<Calendar[]> {
   try {
+    if (!(await hasGogCli())) {
+      return [{ id: 'primary', name: 'Primary', primary: true }];
+    }
+
     const command = 'gog calendar list --format json';
     const { stdout, stderr } = await execAsync(command);
     
