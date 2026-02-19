@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "HOSTNAME=0.0.0.0 PORT=${PORT:-8080} node .next/standalone/server.js",
+    "startCommand": "mkdir -p .next/standalone/.next && cp -R .next/static .next/standalone/.next/static && cp -R public .next/standalone/public 2>/dev/null || true; HOSTNAME=0.0.0.0 PORT=${PORT:-8080} node .next/standalone/server.js",
     "healthcheckPath": "/api/health",
     "healthcheckTimeout": 120,
     "restartPolicyType": "ON_FAILURE",
